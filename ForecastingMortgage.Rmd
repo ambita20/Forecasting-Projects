@@ -1,0 +1,86 @@
+---
+title: "Forecasting US Mortgage Rates"
+output:
+  html_document: default
+  word_document: default
+---
+We have been gven the data of mortgage rates in US since 2005 to 2019. Using ARIMA the rates have been forecasted for the next 50 weeks.
+```{r warning=FALSE, include=FALSE}
+library(tseries)
+library(urca)
+library(forecast)
+data<- read.csv('data/MORTGAGE30USsince2005.csv',skip=200)
+
+colnames(data)<-c('year','mortgage')
+mortgage<-data$mortgage
+
+```
+1)Data Visuualization
+```{r}
+par(mfrow=c(1,1))
+plot.ts(mortgage)
+par(mfrow=c(1,2))
+acf(mortgage)
+pacf(mortgage)
+```
+From the plot of timeseries, it is evident that the time series is non stationary. Also the ACF decreases gradually which implies that thge time series s non stationary.
+Let us perform the ADF test for non-stationarity.
+
+2)Identification of the non-stationarity of the time series
+```{r}
+adf.test(mortgage)
+```
+The p-value is 0.43767 which is greater than 0.05. Hence we cannot reject the null that the time series is non stationary.Since it shows a drift, let us check for drift
+```{r}
+test1<-ur.df(mortgage,type="drift", lags = 8)
+summary(test1)
+
+```
+The test statistic is not more negative than the critical values, hence we conclude that the time series is non-stationary with a drift
+
+3) Parameter estimation
+```{r}
+mortgage.diff.one<-diff(mortgage)
+adf.test(mortgage.diff.one)
+
+```
+
+After taking the first order difference, we get a p-value of 0.01 which is less than 0.05. Hence we reject the null hypothesis that the time series is non-stationary and conclude that the time series is stationary.
+```{r}
+par(mfrow=c(1,2))
+acf(mortgage.diff.one)
+pacf(mortgage.diff.one)
+
+```
+The plot shows that the ACF cutts of at 2 and the PACF cutts off at 2. Lets fit an ARMA(2,2) model
+```{r}
+Arima(mortgage,order=c(2,1,2))
+#Checking for other models
+Arima(mortgage,order=c(2,1,1))
+
+```
+We see that ARIMA(2,1,2) has the lowest AIC, hence let's fit this model.
+```{r}
+model<-Arima(mortgage,order=c(2,1,2))
+```
+
+We see that ar1 is not significant,ma1 is also not significant.
+We fit the final model by fixing the ar1 and ma1 to 0.
+```{r}
+model.revised<-Arima(mortgage,order=c(2,1,2),fixed=c(0,NA,0,NA))
+```
+Final model:
+
+4) Diagnostic checking
+```{r}
+checkresiduals(model.revised)
+```
+We observe that the residuals are random and the ACF is not significant. The p-value is greater than 0.05 hence we cannot reject the null hypotheses that the residuals are white noise
+
+5)Forecast for next 50 weeks
+```{r}
+forecast(model.revised,h=50)
+autoplot(forecast(model.revised,h=50))
+
+```
+
